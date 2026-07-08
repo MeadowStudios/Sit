@@ -51,7 +51,6 @@ import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import java.util.UUID;
 
 public final class PoseRenderer implements NmsPose {
     private static final EntityDataAccessor<net.minecraft.world.entity.Pose> POSE_ACCESSOR =
@@ -66,7 +65,7 @@ public final class PoseRenderer implements NmsPose {
 
     private int viewerScanCooldown;
     private List<ItemStack> equipmentCache;
-
+    private List<ItemStack> hiddenRealEquipmentCache;
     private final Sit plugin;
     private final Player player;
     private final Entity seatEntity;
@@ -84,10 +83,10 @@ public final class PoseRenderer implements NmsPose {
     private boolean oldInvisible;
 
     private Set<Player> viewers = new HashSet<>();
-    private final Set<UUID> hiddenRealViewers = new HashSet<>();
     private ClientboundBundlePacket spawnBundle;
     private ClientboundPlayerInfoRemovePacket removeInfoPacket;
     private ClientboundRemoveEntitiesPacket removeEntityPacket;
+    private ClientboundTeleportEntityPacket teleportFakePacket;
     private boolean oldSleepingIgnored;
     private boolean oldGlowing;
     private float lastYaw = Float.MIN_VALUE;
@@ -177,6 +176,15 @@ public final class PoseRenderer implements NmsPose {
                             .setValue(BedBlock.FACING, direction.getOpposite())
                             .setValue(BedBlock.PART, BedPart.HEAD)
             ));
+
+            this.teleportFakePacket = new ClientboundTeleportEntityPacket(
+                    fakePlayer.getId(),
+                    net.minecraft.world.entity.PositionMoveRotation.of(fakePlayer),
+                    Set.of(),
+                    false
+            );
+
+            packets.add(teleportFakePacket);
         }
 
         packets.add(new ClientboundSetEntityDataPacket(
@@ -200,25 +208,16 @@ public final class PoseRenderer implements NmsPose {
             ));
         }
 
-        if (type == PoseType.LAY) {
-            packets.add(new ClientboundTeleportEntityPacket(
-                    fakePlayer.getId(),
-                    net.minecraft.world.entity.PositionMoveRotation.of(fakePlayer),
-                    Set.of(),
-                    false
-            ));
-        }
-
         this.spawnBundle = new ClientboundBundlePacket(packets);
         this.removeInfoPacket = new ClientboundPlayerInfoRemovePacket(Collections.singletonList(fakePlayer.getUUID()));
         this.removeEntityPacket = new ClientboundRemoveEntitiesPacket(fakePlayer.getId());
 
         for (Player viewer : viewers) {
-            hideRealPlayer(viewer);
-            sendPacket(viewer, spawnBundle);
+            addViewer(viewer);
         }
 
-        updateEquipment();
+        equipmentCache = currentEquipmentCopy();
+        hiddenRealEquipmentCache = currentEquipmentCopy();
 
         nmsSeat.setRunnable(this::tick);
     }
@@ -241,8 +240,9 @@ public final class PoseRenderer implements NmsPose {
         serverPlayer.setInvisible(oldInvisible || serverPlayer.getActiveEffectsMap().containsKey(MobEffects.INVISIBILITY));
         serverPlayer.setGlowingTag(oldGlowing);
 
-        sendRealEquipmentVisible(player, true);
-        showRealPlayerToHiddenViewers();
+        for (Player viewer : oldViewers) {
+            sendRealEquipmentVisible(viewer, true);
+        }
     }
 
     private void tick() {
@@ -257,6 +257,7 @@ public final class PoseRenderer implements NmsPose {
         }
 
         updateEquipment();
+        sendRealEquipmentHidden();
         updateSkin();
 
         if (type == PoseType.LAY) {
@@ -281,9 +282,9 @@ public final class PoseRenderer implements NmsPose {
 
         for (Player viewer : current) {
             if (viewers.add(viewer)) {
-                hideRealPlayer(viewer);
-                sendPacket(viewer, spawnBundle);
-                sendFakeEquipment(viewer);
+                addViewer(viewer);
+            } else {
+                sendRealEquipmentVisible(viewer, false);
             }
         }
 
@@ -295,14 +296,68 @@ public final class PoseRenderer implements NmsPose {
         }
     }
 
+    private void addViewer(Player viewer) {
+        if (viewer == null || !viewer.isOnline()) {
+            return;
+        }
+
+        sendPacket(viewer, spawnBundle);
+        sendFakeEquipment(viewer);
+        sendRealEquipmentVisible(viewer, false);
+        sendDelayedRealEquipmentHide(viewer);
+
+        if (type == PoseType.LAY && teleportFakePacket != null) {
+            sendDelayedLayTeleport(viewer);
+        }
+    }
+
+    private void sendDelayedRealEquipmentHide(Player viewer) {
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline() || !viewer.isOnline() || !viewers.contains(viewer)) {
+                return;
+            }
+
+            sendRealEquipmentVisible(viewer, false);
+
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (!player.isOnline() || !viewer.isOnline() || !viewers.contains(viewer)) {
+                    return;
+                }
+
+                sendRealEquipmentVisible(viewer, false);
+            }, 1L);
+        }, 1L);
+    }
+
+    private void sendDelayedLayTeleport(Player viewer) {
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline() || !viewer.isOnline() || !viewers.contains(viewer)) {
+                return;
+            }
+
+            sendPacket(viewer, teleportFakePacket);
+
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (!player.isOnline() || !viewer.isOnline() || !viewers.contains(viewer)) {
+                    return;
+                }
+
+                sendPacket(viewer, teleportFakePacket);
+            }, 1L);
+        }, 1L);
+    }
+
     private void updateLayDirection() {
         float yaw = player.getLocation().getYaw();
+
         if (yaw == lastYaw) {
             return;
         }
+
         lastYaw = yaw;
 
         float fixedYaw = yaw;
+
         if (direction == Direction.WEST) {
             fixedYaw -= 90.0F;
         } else if (direction == Direction.EAST) {
@@ -311,14 +366,31 @@ public final class PoseRenderer implements NmsPose {
             fixedYaw -= 180.0F;
         }
 
-        ClientboundRotateHeadPacket packet = new ClientboundRotateHeadPacket(fakePlayer, fixedRotation(fixedYaw));
+        fixedYaw = normalizeYaw(fixedYaw);
+
+        float clientYaw = fixedYaw >= 315.0F
+                ? fixedYaw - 360.0F
+                : fixedYaw <= 45.0F
+                ? fixedYaw
+                : fixedYaw >= 180.0F
+                ? -45.0F
+                : 45.0F;
+
+        ClientboundRotateHeadPacket packet =
+                new ClientboundRotateHeadPacket(fakePlayer, fixedRotation(clientYaw));
+
         for (Player viewer : viewers) {
             sendPacket(viewer, packet);
         }
     }
 
+    private static float normalizeYaw(float yaw) {
+        return (yaw < 0.0F ? 360.0F + yaw : yaw) % 360.0F;
+    }
+
     private void updateSkin() {
         fakePlayer.setInvisible(serverPlayer.getActiveEffectsMap().containsKey(MobEffects.INVISIBILITY));
+
         fakePlayer.getEntityData().set(SKIN_ACCESSOR, serverPlayer.getEntityData().get(SKIN_ACCESSOR));
 
         if (!fakePlayer.getEntityData().isDirty()) {
@@ -341,15 +413,8 @@ public final class PoseRenderer implements NmsPose {
         ClientboundSetEquipmentPacket fakeEquipmentPacket =
                 new ClientboundSetEquipmentPacket(fakePlayer.getId(), equipmentList(true));
 
-        ClientboundSetEquipmentPacket hiddenRealEquipmentPacket =
-                new ClientboundSetEquipmentPacket(serverPlayer.getId(), equipmentList(false));
-
         for (Player viewer : viewers) {
             sendPacket(viewer, fakeEquipmentPacket);
-
-            if (viewer.equals(player)) {
-                sendPacket(viewer, hiddenRealEquipmentPacket);
-            }
         }
     }
 
@@ -406,19 +471,6 @@ public final class PoseRenderer implements NmsPose {
         return equipment;
     }
 
-    private void hideRealPlayer(Player viewer) {
-        if (viewer == null || !viewer.isOnline() || !player.isOnline()) {
-            return;
-        }
-
-        if (viewer.equals(player)) {
-            return;
-        }
-
-        hiddenRealViewers.add(viewer.getUniqueId());
-        viewer.hidePlayer(plugin, player);
-    }
-
     private void sendRealEquipmentVisible(Player viewer, boolean visible) {
         if (viewer == null || !viewer.isOnline()) {
             return;
@@ -431,17 +483,6 @@ public final class PoseRenderer implements NmsPose {
         }
 
         sendPacket(viewer, new ClientboundSetEquipmentPacket(serverPlayer.getId(), equipment));
-    }
-
-    private void showRealPlayerToHiddenViewers() {
-        for (UUID viewerId : new HashSet<>(hiddenRealViewers)) {
-            Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer != null && viewer.isOnline()) {
-                viewer.showPlayer(plugin, player);
-            }
-        }
-
-        hiddenRealViewers.clear();
     }
 
     private void removeViewer(Player viewer) {
@@ -467,7 +508,7 @@ public final class PoseRenderer implements NmsPose {
                 continue;
             }
 
-            if (worldPlayer.canSee(player) || hiddenRealViewers.contains(worldPlayer.getUniqueId())) {
+            if (worldPlayer.canSee(player)) {
                 result.add(worldPlayer);
             }
         }
@@ -602,10 +643,10 @@ public final class PoseRenderer implements NmsPose {
         return (yaw >= 135.0F || yaw < -135.0F)
                 ? Direction.NORTH
                 : (yaw >= -135.0F && yaw < -45.0F)
-                        ? Direction.EAST
-                        : (yaw >= -45.0F && yaw < 45.0F)
-                                ? Direction.SOUTH
-                                : Direction.WEST;
+                ? Direction.EAST
+                : (yaw >= -45.0F && yaw < 45.0F)
+                ? Direction.SOUTH
+                : Direction.WEST;
     }
 
     private static byte fixedRotation(float rotation) {
@@ -614,5 +655,36 @@ public final class PoseRenderer implements NmsPose {
 
     private void sendPacket(Player target, Packet<? super ClientGamePacketListener> packet) {
         ((CraftPlayer) target).getHandle().connection.send(packet);
+    }
+
+    private void sendRealEquipmentHidden() {
+        if (sameHiddenRealEquipment()) {
+            return;
+        }
+
+        hiddenRealEquipmentCache = currentEquipmentCopy();
+
+        ClientboundSetEquipmentPacket hiddenRealEquipmentPacket =
+                new ClientboundSetEquipmentPacket(serverPlayer.getId(), equipmentList(false));
+
+        for (Player viewer : viewers) {
+            sendPacket(viewer, hiddenRealEquipmentPacket);
+        }
+    }
+
+    private boolean sameHiddenRealEquipment() {
+        EquipmentSlot[] slots = EquipmentSlot.values();
+
+        if (hiddenRealEquipmentCache == null || hiddenRealEquipmentCache.size() != slots.length) {
+            return false;
+        }
+
+        for (int index = 0; index < slots.length; index++) {
+            if (!sameItem(hiddenRealEquipmentCache.get(index), serverPlayer.getItemBySlot(slots[index]))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
