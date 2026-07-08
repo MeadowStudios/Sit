@@ -1,0 +1,31 @@
+# SIT configuration
+
+features:
+  sit:
+    enabled: true
+    get-up-hint: "ꜱɴᴇᴀᴋ ᴛᴏ ꜱᴛᴀɴᴅ ᴜᴘ"
+
+  lay:
+    enabled: true
+    get-up-hint: "ꜱɴᴇᴀᴋ ᴛᴏ ɢᴇᴛ ᴜᴘ"
+
+  spin:
+    enabled: true
+    get-up-hint: "ꜱɴᴇᴀᴋ ᴛᴏ ꜱᴛᴏᴘ ꜱᴘɪɴɴɪɴɢ"
+
+  crawl:
+    enabled: true
+    get-up-hint: "ꜱɴᴇᴀᴋ ᴛᴏ ꜱᴛᴏᴘ ᴄʀᴀᴡʟɪɴɢ"
+
+  player-sit:
+    enabled: true
+    get-up-hint: "ꜱɴᴇᴀᴋ ᴛᴏ ɢᴇᴛ ᴅᴏᴡɴ"
+
+lay-snoring-sound: true
+
+messages:
+  no-permission: "§a→ §fYou do not have permission to use this."
+  feature-disabled: "§a→ §fThis feature is currently disabled."
+  player-sit-enabled: "§a→ §fPlayer sit is now §aenabled§f."
+  player-sit-disabled: "§a→ §fPlayer sit is now §cdisabled§f."
+  reload: "§a→ §fSIT configuration reloaded."

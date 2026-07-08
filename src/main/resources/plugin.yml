@@ -1,0 +1,39 @@
+name: Sit
+main: me.meadow.Sit
+version: ${version}
+api-version: '1.21'
+author: MeadowStudios
+softdepend: [PlaceholderAPI]
+
+commands:
+  sit:
+    description: Sit down anywhere
+  lay:
+    description: Lay down and relax
+  spin:
+    description: Start spinning
+  crawl:
+    description: Toggle crawling
+  playersit:
+    description: Toggle whether other players can sit on you
+    aliases: [toggleplayersit]
+
+permissions:
+  sit.use:
+    description: Allows using /sit
+    default: true
+  sit.lay:
+    description: Allows using /lay
+    default: true
+  sit.spin:
+    description: Allows using /spin
+    default: true
+  sit.crawl:
+    description: Allows using /crawl
+    default: true
+  sit.playersit:
+    description: Allows using /playersit and player sit interactions
+    default: true
+  sit.reload:
+    description: Allows using /sit reload
+    default: op
