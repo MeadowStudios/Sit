@@ -6,3 +6,4 @@ out/
 *.jar
 *.class
 .DS_Store
+push-to-github.bat
