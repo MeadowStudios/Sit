@@ -33,7 +33,11 @@ public final class PoseListener implements Listener {
         }
 
         Player player = event.getPlayer();
-        poses.stopHeadRiders(player);
+
+        if (player.isOnGround() && !player.isFlying() && !player.isGliding()) {
+            poses.stopHeadRiders(player);
+        }
+
         poses.stop(player);
     }
 
