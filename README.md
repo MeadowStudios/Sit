@@ -74,8 +74,6 @@ The production jar is remapped during the build process and created in:
 build/libs/
 ```
 
-This project does not use ProGuard obfuscation.
-
 ## Plugin Metadata
 
 The Bukkit plugin metadata is located in:
