@@ -1,4 +1,4 @@
-package me.meadow.nms.v26_1_2;
+package me.meadow.nms.v26_2;
 
 import me.meadow.Sit;
 import me.meadow.nms.NmsBridge;
@@ -12,10 +12,10 @@ import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
-public final class NmsBridge_26_1_2 implements NmsBridge {
+public final class NmsBridge_26_2 implements NmsBridge {
     private final Sit plugin;
 
-    public NmsBridge_26_1_2(Sit plugin) {
+    public NmsBridge_26_2(Sit plugin) {
         this.plugin = plugin;
     }
 

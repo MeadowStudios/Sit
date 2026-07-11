@@ -9,7 +9,7 @@ public final class NmsBridges {
     }
 
     public static NmsBridge create(Sit plugin) {
-        String className = "me.meadow.nms.v26_1_2.NmsBridge_26_1_2";
+        String className = "me.meadow.nms.v26_2.NmsBridge_26_2";
 
         try {
             Class<?> rawClass = Class.forName(className);
@@ -22,7 +22,7 @@ public final class NmsBridges {
                 return new NoopNmsBridge();
             }
 
-            plugin.getLogger().info("NMS Sit bridge enabled for Purpur/Paper 26.1.2.");
+            plugin.getLogger().info("NMS Sit bridge enabled for Purpur/Paper 26.2.");
             return bridge;
         } catch (Throwable throwable) {
             plugin.getLogger().warning("NMS Sit bridge could not be enabled: "

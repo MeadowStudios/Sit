@@ -1,4 +1,4 @@
-package me.meadow.nms.v26_1_2;
+package me.meadow.nms.v26_2;
 
 import me.meadow.Sit;
 import net.minecraft.server.level.ServerLevel;

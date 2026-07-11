@@ -1,10 +1,10 @@
 plugins {
     java
-    id("io.papermc.paperweight.userdev") version "2.0.0-beta.18"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.20"
 }
 
 group = "me.meadow"
-version = "1.3"
+version = "1.5"
 
 dependencies {
     paperweight.paperDevBundle(providers.gradleProperty("paperDevBundle").get())
@@ -12,14 +12,15 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
 }
 
 tasks {
     compileJava {
         options.encoding = "UTF-8"
-        options.release.set(21)
+        options.release.set(25)
         options.isDebug = false
     }
 
@@ -34,8 +35,4 @@ tasks {
         archiveBaseName.set("Sit")
         archiveVersion.set(project.version.toString())
     }
-}
-
-tasks.named("build") {
-    dependsOn("reobfJar")
 }

@@ -1,4 +1,4 @@
-package me.meadow.nms.v26_1_2;
+package me.meadow.nms.v26_2;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
@@ -37,7 +37,8 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BedBlock;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -172,9 +173,7 @@ public final class PoseRenderer implements NmsPose {
         if (type == PoseType.LAY) {
             packets.add(new ClientboundBlockUpdatePacket(
                     bedPos,
-                    Blocks.WHITE_BED.defaultBlockState()
-                            .setValue(BedBlock.FACING, direction.getOpposite())
-                            .setValue(BedBlock.PART, BedPart.HEAD)
+                    whiteBedState(direction)
             ));
 
             this.teleportFakePacket = new ClientboundTeleportEntityPacket(
@@ -686,5 +685,19 @@ public final class PoseRenderer implements NmsPose {
         }
 
         return true;
+    }
+
+    private static BlockState whiteBedState(Direction direction) {
+        for (net.minecraft.world.level.block.Block block : BuiltInRegistries.BLOCK) {
+            String key = String.valueOf(BuiltInRegistries.BLOCK.getKey(block));
+
+            if (key.equals("minecraft:white_bed") || key.endsWith(":white_bed")) {
+                return block.defaultBlockState()
+                        .setValue(BedBlock.FACING, direction.getOpposite())
+                        .setValue(BedBlock.PART, BedPart.HEAD);
+            }
+        }
+
+        throw new IllegalStateException("Could not find white bed block.");
     }
 }

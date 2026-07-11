@@ -1,4 +1,4 @@
-package me.meadow.nms.v26_1_2;
+package me.meadow.nms.v26_2;
 
 import java.util.Set;
 import me.meadow.Sit;
