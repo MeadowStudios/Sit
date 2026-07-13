@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "me.meadow"
-version = "1.5"
+version = "1.6"
 
 dependencies {
     paperweight.paperDevBundle(providers.gradleProperty("paperDevBundle").get())
