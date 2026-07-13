@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import me.meadow.Sit;
@@ -63,6 +64,7 @@ public final class PoseRenderer implements NmsPose {
     private static final EntityDataAccessor<Byte> SKIN_ACCESSOR =
             EntityDataSerializers.BYTE.createAccessor(16);
     private static final int VIEWER_SCAN_INTERVAL_TICKS = 10;
+    private static final EquipmentSlot[] EQUIPMENT_SLOTS = EquipmentSlot.values();
 
     private int viewerScanCooldown;
     private List<ItemStack> equipmentCache;
@@ -287,9 +289,11 @@ public final class PoseRenderer implements NmsPose {
             }
         }
 
-        for (Player viewer : new HashSet<>(viewers)) {
+        for (Iterator<Player> iterator = viewers.iterator(); iterator.hasNext();) {
+            Player viewer = iterator.next();
+
             if (!current.contains(viewer)) {
-                viewers.remove(viewer);
+                iterator.remove();
                 removeViewer(viewer);
             }
         }
@@ -418,7 +422,7 @@ public final class PoseRenderer implements NmsPose {
     }
 
     private boolean sameEquipment() {
-        EquipmentSlot[] slots = EquipmentSlot.values();
+        EquipmentSlot[] slots = EQUIPMENT_SLOTS;
 
         if (equipmentCache == null || equipmentCache.size() != slots.length) {
             return false;
@@ -434,7 +438,7 @@ public final class PoseRenderer implements NmsPose {
     }
 
     private List<ItemStack> currentEquipmentCopy() {
-        EquipmentSlot[] slots = EquipmentSlot.values();
+        EquipmentSlot[] slots = EQUIPMENT_SLOTS;
         List<ItemStack> copy = new ArrayList<>(slots.length);
 
         for (EquipmentSlot slot : slots) {
@@ -463,7 +467,7 @@ public final class PoseRenderer implements NmsPose {
     private List<Pair<EquipmentSlot, ItemStack>> equipmentList(boolean visible) {
         List<Pair<EquipmentSlot, ItemStack>> equipment = new ArrayList<>();
 
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
+        for (EquipmentSlot slot : EQUIPMENT_SLOTS) {
             equipment.add(Pair.of(slot, visible ? serverPlayer.getItemBySlot(slot) : ItemStack.EMPTY));
         }
 
@@ -477,7 +481,7 @@ public final class PoseRenderer implements NmsPose {
 
         List<Pair<EquipmentSlot, ItemStack>> equipment = new ArrayList<>();
 
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
+        for (EquipmentSlot slot : EQUIPMENT_SLOTS) {
             equipment.add(Pair.of(slot, visible ? serverPlayer.getItemBySlot(slot) : ItemStack.EMPTY));
         }
 
@@ -672,7 +676,7 @@ public final class PoseRenderer implements NmsPose {
     }
 
     private boolean sameHiddenRealEquipment() {
-        EquipmentSlot[] slots = EquipmentSlot.values();
+        EquipmentSlot[] slots = EQUIPMENT_SLOTS;
 
         if (hiddenRealEquipmentCache == null || hiddenRealEquipmentCache.size() != slots.length) {
             return false;
